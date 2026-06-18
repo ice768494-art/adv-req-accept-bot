@@ -86,6 +86,28 @@ def get_all_users():
         logger.error(f"Error fetching users from database: {e}")
         return []
 
+def format_message(template: str, user, chat=None) -> str:
+    # Handle literal backslash-n first
+    text = template.replace("\\n", "\n")
+    
+    # Define replacement mapping
+    placeholders = {
+        "{first_name}": user.first_name or "",
+        "{last_name}": user.last_name or "",
+        "{full_name}": user.full_name or "",
+        "{username}": user.username or "",
+        "{user_id}": str(user.id),
+    }
+    
+    if chat:
+        placeholders["{chat_title}"] = chat.title or ""
+        placeholders["{chat_id}"] = str(chat.id)
+        
+    for key, val in placeholders.items():
+        text = text.replace(key, val)
+        
+    return text
+
 TELEGRAM_PROXY = os.getenv("TELEGRAM_PROXY")
 
 # Initialize bot and dispatcher
@@ -122,7 +144,7 @@ async def handle_chat_join_request(request: types.ChatJoinRequest):
         logger.info(f"Attempting to send private message to user {user.id} using chat_id {pm_chat_id}...")
         await bot.send_message(
             chat_id=pm_chat_id,
-            text=WELCOME_MESSAGE
+            text=format_message(WELCOME_MESSAGE, user, chat)
         )
         logger.info(f"Successfully sent private message to {user_name_info}")
         pm_sent = True
@@ -160,7 +182,7 @@ async def cmd_start(message: types.Message):
     # Save user to DB
     add_user(user.id, user.username, user.full_name)
     # Send welcome message
-    await message.answer(START_MESSAGE)
+    await message.answer(format_message(START_MESSAGE, user))
 
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: types.Message):
